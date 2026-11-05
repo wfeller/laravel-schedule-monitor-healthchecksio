@@ -1,0 +1,10 @@
+/vendor
+composer.phar
+composer.lock
+.php-cs-fixer.cache
+.phpunit.result.cache
+coverage
+node_modules
+package-lock.json
+.DS_Store
+Thumbs.db

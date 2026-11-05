@@ -1,0 +1,52 @@
+{
+    "name": "wfeller/laravel-schedule-monitor-healthchecksio",
+    "description": "Send spatie/laravel-schedule-monitor pings to Healthchecks.io instead of Oh Dear.",
+    "keywords": [
+        "laravel",
+        "schedule-monitor",
+        "healthchecks",
+        "healthchecks.io",
+        "cron",
+        "monitoring"
+    ],
+    "homepage": "https://github.com/wfeller/laravel-schedule-monitor-healthchecksio",
+    "license": "MIT",
+    "require": {
+        "php": "^8.3",
+        "illuminate/bus": "^11.0|^12.0|^13.0",
+        "illuminate/console": "^11.0|^12.0|^13.0",
+        "illuminate/http": "^11.0|^12.0|^13.0",
+        "illuminate/support": "^11.0|^12.0|^13.0",
+        "spatie/laravel-schedule-monitor": "^4.1"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.6|^10.0|^11.0",
+        "phpunit/phpunit": "^10.0|^11.0|^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "WF\\ScheduleMonitorHealthchecks\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "WF\\ScheduleMonitorHealthchecks\\Tests\\": "tests"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "test-coverage": "vendor/bin/phpunit --coverage-html coverage"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "WF\\ScheduleMonitorHealthchecks\\HealthchecksServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
