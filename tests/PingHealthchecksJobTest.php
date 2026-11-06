@@ -147,8 +147,9 @@ class PingHealthchecksJobTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_late_success_ping_is_dropped_when_a_newer_run_started(): void
+    public function test_late_success_ping_is_dropped_while_a_newer_pinged_run_is_still_going(): void
     {
+        config()->set('schedule-monitor.oh_dear.send_starting_ping', true);
         Http::fake();
         $task = $this->task();
         $finished = $this->logItem($task, MonitoredScheduledTaskLogItem::TYPE_FINISHED);
@@ -157,6 +158,46 @@ class PingHealthchecksJobTest extends TestCase
         (new PingHealthchecksJob($finished))->handle();
 
         Http::assertNothingSent();
+    }
+
+    public function test_late_success_ping_is_sent_when_a_newer_run_started_without_start_pings(): void
+    {
+        config()->set('schedule-monitor.oh_dear.send_starting_ping', false);
+        Http::fake();
+        $task = $this->task();
+        $finished = $this->logItem($task, MonitoredScheduledTaskLogItem::TYPE_FINISHED);
+        $this->logItem($task, MonitoredScheduledTaskLogItem::TYPE_STARTING);
+
+        (new PingHealthchecksJob($finished))->handle();
+
+        Http::assertSent(fn (Request $request) => $request->url() === self::PING_URL);
+    }
+
+    public function test_late_success_ping_is_sent_when_a_newer_run_already_succeeded(): void
+    {
+        Http::fake();
+        $task = $this->task();
+        $finished = $this->logItem($task, MonitoredScheduledTaskLogItem::TYPE_FINISHED);
+        $this->logItem($task, MonitoredScheduledTaskLogItem::TYPE_STARTING);
+        $this->logItem($task, MonitoredScheduledTaskLogItem::TYPE_FINISHED);
+
+        (new PingHealthchecksJob($finished))->handle();
+
+        Http::assertSent(fn (Request $request) => $request->url() === self::PING_URL);
+    }
+
+    public function test_late_success_ping_is_sent_when_a_newer_pinged_run_already_ended(): void
+    {
+        config()->set('schedule-monitor.oh_dear.send_starting_ping', true);
+        Http::fake();
+        $task = $this->task();
+        $finished = $this->logItem($task, MonitoredScheduledTaskLogItem::TYPE_FINISHED);
+        $this->logItem($task, MonitoredScheduledTaskLogItem::TYPE_STARTING);
+        $this->logItem($task, MonitoredScheduledTaskLogItem::TYPE_FINISHED);
+
+        (new PingHealthchecksJob($finished))->handle();
+
+        Http::assertSent(fn (Request $request) => $request->url() === self::PING_URL);
     }
 
     public function test_late_failure_ping_is_still_sent(): void

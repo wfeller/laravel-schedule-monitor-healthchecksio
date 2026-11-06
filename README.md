@@ -127,7 +127,7 @@ Output is only included for tasks using upstream's `storeOutputInDb()`. Healthch
 Pings that reach the job after a newer run's events (queue reordering, retries) are dropped:
 
 - a **start** ping, if the task has since logged a finish or failure. It would leave the check "started" and set off a false alert once the grace time ran out.
-- a **success** ping, if the task has since logged a start, finish or failure. It would mask a newer failure or close a newer run that is still going.
+- a **success** ping, if the task has since logged a failure, or if start signals are on and a newer run has started without ending yet. It would mask the failure or close the run that is still going. A newer success never drops a late one: under a queue backlog longer than the task's period, that rule would drop every success and mark a healthy check down.
 
 Failure pings are always sent.
 

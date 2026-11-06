@@ -90,34 +90,43 @@ class PingHealthchecksJob implements ShouldQueue
     }
 
     /**
-     * Drop pings that reach the job after a newer run's pings (queue reordering, retries).
-     * A late start would leave the check "started" and raise a false alert once the grace
-     * time elapses. A late success would mask a newer failure, or close a newer run that
-     * is still going. Failures are always sent.
+     * Drop pings that reach the job after a newer run's events (queue reordering, retries),
+     * where sending them would do harm. A late start would leave the check "started" and
+     * raise a false alert once the grace time elapses. A late success would mask a newer
+     * failure, or close a newer run that is still going. Failures are always sent.
+     *
+     * A newer success never drops a late one: under a queue backlog longer than the task's
+     * period every success has a newer one behind it, so all of them would be dropped and
+     * a healthy check would go down. A newer start only counts while start pings are on —
+     * upstream logs a start for every run but pings it only then — and while it is the
+     * newest event, since a run that has already ended is no longer open in Healthchecks.
      */
     protected function isSuperseded(): bool
     {
-        $supersededBy = match ($this->logItem->type) {
-            MonitoredScheduledTaskLogItem::TYPE_STARTING => [
-                MonitoredScheduledTaskLogItem::TYPE_FINISHED,
-                MonitoredScheduledTaskLogItem::TYPE_FAILED,
-            ],
-            MonitoredScheduledTaskLogItem::TYPE_FINISHED => [
-                MonitoredScheduledTaskLogItem::TYPE_STARTING,
-                MonitoredScheduledTaskLogItem::TYPE_FINISHED,
-                MonitoredScheduledTaskLogItem::TYPE_FAILED,
-            ],
-            default => [],
+        $laterItems = fn () => $this->logItem->monitoredScheduledTask->logItems()
+            ->where('id', '>', $this->logItem->getKey());
+
+        return match ($this->logItem->type) {
+            MonitoredScheduledTaskLogItem::TYPE_STARTING => $laterItems()
+                ->whereIn('type', [
+                    MonitoredScheduledTaskLogItem::TYPE_FINISHED,
+                    MonitoredScheduledTaskLogItem::TYPE_FAILED,
+                ])
+                ->exists(),
+            MonitoredScheduledTaskLogItem::TYPE_FINISHED => $laterItems()
+                ->where('type', MonitoredScheduledTaskLogItem::TYPE_FAILED)
+                ->exists()
+                || (config('schedule-monitor.oh_dear.send_starting_ping') === true
+                    && $laterItems()
+                        ->whereIn('type', [
+                            MonitoredScheduledTaskLogItem::TYPE_STARTING,
+                            MonitoredScheduledTaskLogItem::TYPE_FINISHED,
+                            MonitoredScheduledTaskLogItem::TYPE_FAILED,
+                        ])
+                        ->orderByDesc('id')
+                        ->value('type') === MonitoredScheduledTaskLogItem::TYPE_STARTING),
+            default => false,
         };
-
-        if ($supersededBy === []) {
-            return false;
-        }
-
-        return $this->logItem->monitoredScheduledTask->logItems()
-            ->where('id', '>', $this->logItem->getKey())
-            ->whereIn('type', $supersededBy)
-            ->exists();
     }
 
     /**
